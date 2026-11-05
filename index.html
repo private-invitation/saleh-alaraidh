@@ -20,8 +20,8 @@ input{width:100%;font:inherit;font-size:20px;font-weight:600;color:var(--ivory);
 input:focus{border-color:var(--gold)}
 input::placeholder{color:rgba(244,236,222,.35);font-weight:500}
 .prev{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#000;aspect-ratio:9/16}
-.prev canvas{display:block;width:100%;height:100%}
-.prev .wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--gold)}
+.prev img{display:block;width:100%;height:100%}
+.fn{font-size:14px;color:var(--gold);margin-top:8px;min-height:22px;opacity:.85}
 button{font:inherit;font-size:20px;font-weight:700;width:100%;border:0;border-radius:14px;padding:15px;cursor:pointer;background:linear-gradient(180deg,#EAD3A0,#C9A86A);color:#1A120C}
 button:disabled{opacity:.4;cursor:default}
 .note{font-size:13px;opacity:.7;text-align:center;line-height:1.7}
@@ -36,7 +36,8 @@ button:disabled{opacity:.4;cursor:default}
 
   <div>
     <label for="nm">اسم المدعو</label>
-    <input id="nm" type="text" autocomplete="off" maxlength="60" placeholder="مثال: الأستاذ محمد العتيبي">
+    <input id="nm" type="text" autocomplete="off" maxlength="60" placeholder="مثال: محمد العتيبي">
+    <div class="fn" id="fn"></div>
   </div>
 
   <div class="sticky">
@@ -44,82 +45,34 @@ button:disabled{opacity:.4;cursor:default}
     <div class="msg" id="msg"></div>
   </div>
 
-  <div class="prev"><canvas id="cv" width="2160" height="3840"></canvas><div class="wait" id="wait">جاري التحميل…</div></div>
-  <p class="note">بالجوال: يفتح لك خيارات المشاركة (واتساب وغيره) والدعوة PDF باسم المدعو.<br>بالكمبيوتر: ينزل ملف PDF باسمه.</p>
+  <div class="prev"><img src="preview.jpg" alt="الدعوة"></div>
+  <p class="note">بالجوال: يفتح لك خيارات المشاركة (واتساب وغيره) والدعوة ملف PDF اسمه اسم المدعو.<br>بالكمبيوتر: ينزل ملف PDF باسمه.</p>
 </main>
 
-<script src="jspdf.umd.min.js"></script>
 <script>
-const W=2160,H=3840;
-// name plate (css 170..910 x 350..428 at 2x)
-const PX=1080,PY=778,PMAX=1340;
-const FONT='"IBM Plex Sans Arabic"';
-const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
-const nm=document.getElementById('nm'),btn=document.getElementById('send'),msg=document.getElementById('msg');
-const base=new Image();
-let ready=false,cache={name:null,file:null},timer=null;
-
+const nm=document.getElementById('nm'),btn=document.getElementById('send'),msg=document.getElementById('msg'),fnEl=document.getElementById('fn');
+let pdf=null;
 function clean(s){return s.replace(/\s+/g,' ').trim()}
 function fileName(n){return n.replace(/[\\/:*?"<>|]/g,'').trim()+'.pdf'}
-
-function draw(n){
-  ctx.drawImage(base,0,0,W,H);
-  if(!n)return;
-  let size=78;
-  ctx.direction='rtl';ctx.textAlign='center';ctx.textBaseline='alphabetic';
-  do{ctx.font='700 '+size+'px '+FONT;if(ctx.measureText(n).width<=PMAX)break;size-=2}while(size>34);
-  ctx.fillStyle='#F0DDAE';
-  ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=14;
-  ctx.fillText(n,PX,PY+size*0.36);
-  ctx.shadowBlur=0;ctx.shadowColor='transparent';
-}
-
-function build(n){
-  draw(n);
-  const url=cv.toDataURL('image/jpeg',0.9);
-  const doc=new jspdf.jsPDF({orientation:'portrait',unit:'pt',format:[540,960],compress:true});
-  doc.setProperties({title:n,subject:'دعوة حفل تكريم الكابتن صالح العريض'});
-  doc.addImage(url,'JPEG',0,0,540,960,undefined,'FAST');
-  const blob=doc.output('blob');
-  const fn=fileName(n);
-  cache={name:n,file:new File([blob],fn,{type:'application/pdf'})};
-  return cache.file;
-}
-
+function update(){const n=clean(nm.value);btn.disabled=!pdf||!n;fnEl.textContent=n?('اسم الملف: '+fileName(n)):'';msg.textContent=''}
 function download(file){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(file);a.download=file.name;
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
-
-nm.addEventListener('input',()=>{
-  const n=clean(nm.value);
-  btn.disabled=!ready||!n;msg.textContent='';
-  if(!ready)return;
-  draw(n);
-  clearTimeout(timer);
-  if(n)timer=setTimeout(()=>build(n),350);
-});
-
+nm.addEventListener('input',update);
 btn.addEventListener('click',async()=>{
-  const n=clean(nm.value);if(!n||!ready)return;
-  clearTimeout(timer);
-  const file=(cache.name===n&&cache.file)?cache.file:build(n);
+  const n=clean(nm.value);if(!n||!pdf)return;
+  const file=new File([pdf],fileName(n),{type:'application/pdf'});
   const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent));
   if(mobile&&navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file]});msg.textContent='تم ✓ اكتب اسم المدعو التالي';nm.value='';draw('');btn.disabled=true;nm.focus()}
+    try{await navigator.share({files:[file]});nm.value='';update();msg.textContent='تم ✓ اكتب اسم المدعو التالي';nm.focus()}
     catch(e){if(e&&e.name==='AbortError')return;download(file);msg.textContent='تم تنزيل '+file.name}
   }else{download(file);msg.textContent='تم تنزيل '+file.name}
 });
-
-Promise.all([
-  new Promise((res,rej)=>{base.onload=res;base.onerror=rej;base.src='base.jpg'}),
-  document.fonts.load('700 78px '+FONT,'محمد العتيبي').catch(()=>{})
-]).then(()=>{
-  ready=true;document.getElementById('wait').remove();
-  const n=clean(nm.value);draw(n);btn.disabled=!n;if(n)build(n);
-}).catch(()=>{document.getElementById('wait').textContent='تعذر تحميل الدعوة، حدّث الصفحة'});
+fetch('invite.pdf').then(r=>{if(!r.ok)throw 0;return r.blob()}).then(b=>{pdf=b;update()})
+  .catch(()=>{msg.textContent='تعذر تحميل الدعوة، حدّث الصفحة'});
 </script>
 </body>
 </html>
