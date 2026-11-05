@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>دعوة حفل الكابتن صالح العريض</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#E2C893;--gold2:#C9A86A;--ivory:#F4ECDE;--ink:#0D0907;--card:#17110D;--line:rgba(226,200,147,.35)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--ink);color:var(--ivory);font-family:'IBM Plex Sans Arabic',system-ui,sans-serif}
+body{min-height:100vh;padding:24px 16px 40px;display:flex;justify-content:center}
+main{width:100%;max-width:440px;display:flex;flex-direction:column;gap:18px}
+h1{font-size:22px;font-weight:700;color:var(--gold);text-align:center;line-height:1.5}
+.sub{font-size:14px;opacity:.75;text-align:center;margin-top:-10px}
+label{display:block;font-size:15px;font-weight:600;color:var(--gold);margin-bottom:8px}
+input{width:100%;font:inherit;font-size:20px;font-weight:600;color:var(--ivory);background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;outline:none;direction:rtl}
+input:focus{border-color:var(--gold)}
+input::placeholder{color:rgba(244,236,222,.35);font-weight:500}
+.prev{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#000;aspect-ratio:9/16}
+.prev canvas{display:block;width:100%;height:100%}
+.prev .wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--gold)}
+button{font:inherit;font-size:20px;font-weight:700;width:100%;border:0;border-radius:14px;padding:15px;cursor:pointer;background:linear-gradient(180deg,#EAD3A0,#C9A86A);color:#1A120C}
+button:disabled{opacity:.4;cursor:default}
+.note{font-size:13px;opacity:.7;text-align:center;line-height:1.7}
+.msg{font-size:15px;text-align:center;color:var(--gold);min-height:24px}
+.sticky{position:sticky;bottom:12px;display:flex;flex-direction:column;gap:8px}
+</style>
+</head>
+<body>
+<main>
+  <h1>دعوة حفل تكريم الكابتن صالح العريض</h1>
+  <p class="sub">اكتب اسم المدعو واضغط «إرسال»</p>
+
+  <div>
+    <label for="nm">اسم المدعو</label>
+    <input id="nm" type="text" autocomplete="off" maxlength="60" placeholder="مثال: الأستاذ محمد العتيبي">
+  </div>
+
+  <div class="sticky">
+    <button id="send" disabled>إرسال</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="prev"><canvas id="cv" width="2160" height="3840"></canvas><div class="wait" id="wait">جاري التحميل…</div></div>
+  <p class="note">بالجوال: يفتح لك خيارات المشاركة (واتساب وغيره) والدعوة PDF باسم المدعو.<br>بالكمبيوتر: ينزل ملف PDF باسمه.</p>
+</main>
+
+<script src="jspdf.umd.min.js"></script>
+<script>
+const W=2160,H=3840;
+// name plate (css 170..910 x 350..428 at 2x)
+const PX=1080,PY=778,PMAX=1340;
+const FONT='"IBM Plex Sans Arabic"';
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const nm=document.getElementById('nm'),btn=document.getElementById('send'),msg=document.getElementById('msg');
+const base=new Image();
+let ready=false,cache={name:null,file:null},timer=null;
+
+function clean(s){return s.replace(/\s+/g,' ').trim()}
+function fileName(n){return n.replace(/[\\/:*?"<>|]/g,'').trim()+'.pdf'}
+
+function draw(n){
+  ctx.drawImage(base,0,0,W,H);
+  if(!n)return;
+  let size=78;
+  ctx.direction='rtl';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  do{ctx.font='700 '+size+'px '+FONT;if(ctx.measureText(n).width<=PMAX)break;size-=2}while(size>34);
+  ctx.fillStyle='#F0DDAE';
+  ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=14;
+  ctx.fillText(n,PX,PY+size*0.36);
+  ctx.shadowBlur=0;ctx.shadowColor='transparent';
+}
+
+function build(n){
+  draw(n);
+  const url=cv.toDataURL('image/jpeg',0.9);
+  const doc=new jspdf.jsPDF({orientation:'portrait',unit:'pt',format:[540,960],compress:true});
+  doc.setProperties({title:n,subject:'دعوة حفل تكريم الكابتن صالح العريض'});
+  doc.addImage(url,'JPEG',0,0,540,960,undefined,'FAST');
+  const blob=doc.output('blob');
+  const fn=fileName(n);
+  cache={name:n,file:new File([blob],fn,{type:'application/pdf'})};
+  return cache.file;
+}
+
+function download(file){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(file);a.download=file.name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+
+nm.addEventListener('input',()=>{
+  const n=clean(nm.value);
+  btn.disabled=!ready||!n;msg.textContent='';
+  if(!ready)return;
+  draw(n);
+  clearTimeout(timer);
+  if(n)timer=setTimeout(()=>build(n),350);
+});
+
+btn.addEventListener('click',async()=>{
+  const n=clean(nm.value);if(!n||!ready)return;
+  clearTimeout(timer);
+  const file=(cache.name===n&&cache.file)?cache.file:build(n);
+  const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent));
+  if(mobile&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file]});msg.textContent='تم ✓ اكتب اسم المدعو التالي';nm.value='';draw('');btn.disabled=true;nm.focus()}
+    catch(e){if(e&&e.name==='AbortError')return;download(file);msg.textContent='تم تنزيل '+file.name}
+  }else{download(file);msg.textContent='تم تنزيل '+file.name}
+});
+
+Promise.all([
+  new Promise((res,rej)=>{base.onload=res;base.onerror=rej;base.src='base.jpg'}),
+  document.fonts.load('700 78px '+FONT,'محمد العتيبي').catch(()=>{})
+]).then(()=>{
+  ready=true;document.getElementById('wait').remove();
+  const n=clean(nm.value);draw(n);btn.disabled=!n;if(n)build(n);
+}).catch(()=>{document.getElementById('wait').textContent='تعذر تحميل الدعوة، حدّث الصفحة'});
+</script>
+</body>
+</html>
