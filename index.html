@@ -54,8 +54,8 @@ button:disabled{opacity:.4;cursor:default}
 <script>
 const W=2160,H=3840;
 const RSVP='https://event.esol.sa/r/0tXcecrAfLyDHgmjCbm9Z37Glzr4gfIQwl03Qecj';
-// name plate (css 170..910 x 350..428 at 2x)
-const PX=1080,PY=778,PMAX=1340;
+// name line under «حيّاكم الله» (no frame), centre css y≈390
+const PX=1080,PY=780,PMAX=1700;
 const FONT='"IBM Plex Sans Arabic"';
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 const nm=document.getElementById('nm'),btn=document.getElementById('send'),msg=document.getElementById('msg');
@@ -68,10 +68,10 @@ function fileName(n){return n.replace(/[\\/:*?"<>|]/g,'').trim()+'.pdf'}
 function draw(n){
   ctx.drawImage(base,0,0,W,H);
   if(!n)return;
-  let size=78;
+  let size=86;
   ctx.direction='rtl';ctx.textAlign='center';ctx.textBaseline='alphabetic';
   do{ctx.font='700 '+size+'px '+FONT;if(ctx.measureText(n).width<=PMAX)break;size-=2}while(size>34);
-  ctx.fillStyle='#F0DDAE';
+  ctx.fillStyle='#F4ECDE';
   ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=14;
   ctx.fillText(n,PX,PY+size*0.36);
   ctx.shadowBlur=0;ctx.shadowColor='transparent';
@@ -83,7 +83,7 @@ function build(n){
   const doc=new jspdf.jsPDF({orientation:'portrait',unit:'pt',format:[540,960],compress:true});
   doc.setProperties({title:n,subject:'دعوة حفل تكريم الكابتن صالح العريض'});
   doc.addImage(url,'JPEG',0,0,540,960,undefined,'FAST');
-  doc.link(125,848,290,41,{url:RSVP});
+  doc.link(125,841,290,41,{url:RSVP});
   const blob=doc.output('blob');
   const fn=fileName(n);
   cache={name:n,file:new File([blob],fn,{type:'application/pdf'})};
